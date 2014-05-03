@@ -1,0 +1,27 @@
+include stencil_lib.pi
+include stencil_ROSE.incl
+
+<parameter in message="input file name"/>
+<parameter out message="output file name"/>
+<define ManycoreLib ("core"".""h")|("multicore"".""h") />
+
+<code StmtList parse=LIST(_,"\n") />
+
+<trace target/>
+<<*<input from=in syntax="stencil-input.code" to=target/>  <<* POET syntax definitions
+<input from=in to=target/>  <<* use ROSE parser
+
+<eval
+   change = 0;
+   foreach (ERASE(target) : (cur=CODE.StencilBlock#(CLEAR type,CLEAR oldarray, CLEAR newarray, CLEAR dimsizes, CLEAR body)) : TRUE)
+   {
+      local = gen_manycore_stencil_local(oldarray, newarray, dimsizes, body);
+      REPLACE(cur, CODE.stencil_manycore[T=type]#(oldarray,newarray,dimsizes,local), target);
+      change = 1;
+   } 
+<* skip here because searching for include directives within ROSE AST is not yet supported
+   if (change) {
+     if (!Lookup(GLOBAL.ManycoreLib,target)) { target= CODE.ManycoreLibInclude :: ERASE(target); } } *>
+/>
+
+<output from=(target) syntax=("stencil-output.code") to=out/>

@@ -1,9 +1,14 @@
 
-#include "sage3.h"
 #include <string>
 #include <AstInterface_ROSE.h>
 #include <StmtInfoCollect.h>
 #include <CommandOptions.h>
+//do not include the following files from rose.h
+#define CFG_ROSE_H
+#define CONTROLFLOWGRAPH_H
+#define PRE_H
+#define ASTDOTGENERATION_TEMPLATES_C
+#include "sage3.h"
 
 // DQ (1/1/2006): This is OK if not declared in a header file
 using namespace std;
@@ -74,7 +79,7 @@ main ( int argc,  char * argv[] )
      //        CmdOptions::GetInstance()->SetOptions((unsigned)argc, argv);
       
      SgProject sageProject ( argc,argv);
-     SageInterface::changeAllBodiesToBlocks(&sageProject);
+     SageInterface::changeAllLoopBodiesToBlocks(&sageProject);
     CmdOptions::GetInstance()->SetOptions(argc, argv);
 
 

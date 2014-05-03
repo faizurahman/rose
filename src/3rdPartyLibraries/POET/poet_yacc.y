@@ -1,4 +1,4 @@
-%token ERROR SYNERROR PARAMETER DEFINE EVAL LBEGIN RBEGIN PRINT INPUT_ENDFILE INPUT_ENDL INPUT_CONT FALSE TOKEN INHERIT
+%token ENDLIST ERROR SYNERROR PARAMETER DEFINE EVAL LBEGIN RBEGIN PRINT INPUT_ENDFILE INPUT_ENDL INPUT_CONT INHERIT
 %token COND ANNOT TO FROM TYPE POETTYPE SYNTAX MESSAGE 
 %token LTAG RTAG ENDTAG PARS XFORM OUTPUT   
 %token PARSE LOOKAHEAD MATCH CODE GLOBAL SOURCE ENDCODE ENDXFORM INPUT ENDINPUT 
@@ -17,7 +17,7 @@
 %nonassoc UMINUS TILT
 %nonassoc DELAY APPLY CLEAR SAVE RESTORE PERMUTE REPLACE RANGE DUPLICATE  REBUILD VAR MAP TUPLE LIST LIST1 INT STRING NAME EXP TRACE ERASE COPY SPLIT LEN INSERT
 %right CAR CDR COLON
-%nonassoc ID ICONST ANY
+%nonassoc ID ICONST ANY 
 %left DOT  DOT2
 %left POND
 %nonassoc LB RB LBR RBR
@@ -92,6 +92,7 @@ extern void* set_local_static(void* id, void* code, LocalVarType t, void* restr,
 
 
 extern void insert_eval();
+extern void insert_cond();
 extern void eval_define();
 
 extern void insert_trace();
@@ -104,8 +105,10 @@ extern void finish_parameter();
 extern void* make_codeMatch();
 extern void* make_annot();
 extern void* make_codeMatchQ();
+extern void* make_empty_list();
 extern void* make_empty();
 extern void* make_any();
+extern void* make_seq(void*, void*);
 extern void* make_typelist2();
 extern void* make_inputlist2();
 extern void* make_inputlist();
@@ -147,9 +150,10 @@ sections :
 
 section : LTAG PARAMETER ID {$$.ptr=insert_parameter($3.ptr);} paramAttrs ENDTAG 
             {finish_parameter($4); }
-    | LTAG DEFINE ID {$$.config=GLOBAL_SCOPE; } typeMulti ENDTAG  
-            {eval_define(make_macroVar($3.ptr),$5); }
+    | LTAG DEFINE ID {$$.config=GLOBAL_SCOPE; } parseType ENDTAG  
+            {eval_define(make_macroVar($3.ptr),$5.ptr); }
     | LTAG EVAL {$$.config=GLOBAL_VAR; } code ENDTAG { insert_eval($4.ptr); } 
+    | LTAG COND {$$.config=GLOBAL_VAR; } code  ENDTAG { insert_cond($4.ptr); } 
     | LTAG TRACE traceVars ENDTAG { insert_trace($3); } 
     | LTAG CODE ID {$$.ptr=insert_code($3.ptr);$$.config=0; } codeAttrs {$$.ptr = $4.ptr; } codeRHS
     | LTAG INPUT {$$.ptr=insert_input(); } inputAttrs {$$.ptr=$3.ptr; } inputRHS 
@@ -187,7 +191,7 @@ inputRHS : RTAG inputCodeList ENDINPUT  { set_input_inline($0.ptr,$2.ptr);  }
 
 codeAttrs :  | codeAttr {$$.ptr=$0.ptr; $$.config=$1.config;} codeAttrs 
 codeAttr : PARS ASSIGN LP codePars RP { set_code_params($0.ptr,$4.ptr); $$.config=$0.config; }
-    | ID ASSIGN {$$.config=GLOBAL_SCOPE;} typeSpec { set_code_attr($0.ptr, $1.ptr, $4.ptr); }
+    | ID ASSIGN {$$.config=ID_DEFAULT;} codeUnit { set_code_attr($0.ptr, $1.ptr, $4.ptr); }
     | ID ASSIGN INHERIT { set_code_inherit($0.ptr, $1.ptr); }
     | COND ASSIGN {$$.config=ID_DEFAULT;} codeUnit 
       { set_local_static(make_sourceString("cond",4), $4.ptr,LVAR_ATTR,$4.ptr,1); $$.config=$0.config; }
@@ -196,10 +200,13 @@ codeAttr : PARS ASSIGN LP codePars RP { set_code_params($0.ptr,$4.ptr); $$.confi
     | PARSE ASSIGN {$$.config=ID_DEFAULT; } parseType
       { set_code_parse($0.ptr,$4.ptr); $$.config=$0.config; }
     | LOOKAHEAD ASSIGN ICONST { set_code_lookahead($0.ptr, $3.ptr); $$.config=$0.config; }
-    | MATCH ASSIGN {$$.config=ID_DEFAULT; } typeSpec
+    | MATCH ASSIGN {$$.config=ID_DEFAULT; } matchSpec
       { set_local_static(make_sourceString("match",5), $4.ptr,LVAR_ATTR,$4.ptr,1); $$.config=$0.config; }
     | OUTPUT ASSIGN {$$.config=ID_DEFAULT; } codeUnit
       { set_local_static(make_sourceString("output",6), $4.ptr,LVAR_ATTR,$4.ptr,1); $$.config=$0.config; }
+
+matchSpec : typeSpec { $$ = $1; }
+    | PARSE { $$.ptr = make_sourceString("PARSE",5); }
 
 varRef: ID { $$.ptr= make_varRef($1.ptr,$0.config); $$.config=$0.config; }
     | GLOBAL DOT ID { $$.ptr=make_varRef($3.ptr,GLOBAL_SCOPE); $$.config=$0.config; }
@@ -228,8 +235,9 @@ paramAttr : TYPE ASSIGN {$$.config=GLOBAL_SCOPE;} typeMulti
 map:  MAP LP {$$.config=$0.config; } typeSpec COMMA 
               {$$.config=$0.config; } typeSpec RP 
           { $$.ptr = make_sourceBop(POET_OP_MAP, $4.ptr, $7.ptr); }
-    | MAP LP RP { $$.ptr=make_sourceUop(POET_OP_MAP,make_empty()); } 
-    | MAP LB RB { $$.ptr=make_sourceUop(POET_OP_MAP,make_empty()); } 
+    | MAP LP RP { $$.ptr=make_dummyOperator(POET_OP_MAP); }
+    | MAP LB RB { $$.ptr=make_dummyOperator(POET_OP_MAP); }
+    | MAP { $$.ptr=make_dummyOperator(POET_OP_MAP); }
     | MAP LB mapEntries RB 
         {$$.ptr=make_sourceUop(POET_OP_MAP, $3.ptr); }
 
@@ -251,6 +259,8 @@ singletype : constant {$$.ptr=$1.ptr; }
 typeSpec1: singletype {$$=$1; }
     | MINUS ICONST { $$.ptr = negate_Iconst($2.ptr); }
     | varInvokeType { $$.ptr=$1.ptr; }
+    | ID ASSIGN {$$.config=$0.config; } typeSpec1
+         { $$.ptr=make_sourceAssign(make_varRef($1.ptr,ASSIGN_VAR), $4.ptr); }
     | TILT typeSpec { $$.ptr = make_typeNot($2); }
     | LP {$$.config=$0.config;} typeMulti RP { $$.ptr = $3.ptr; }
 
@@ -311,11 +321,11 @@ patternTuple :  patternSpec COMMA {$$.config=$0.config;} patternSpec
 
 constant : ICONST { $$.ptr=$1.ptr; } 
     | SOURCE  { $$.ptr = $1.ptr; }
+    | ENDLIST { $$.ptr=make_empty_list(); }
 
 parseType1 :  TUPLE LP {$$.config=$0.config; } parseElem {$$.config=$0.config;} parseElemList RP { $$.ptr = make_sourceUop(POET_OP_TUPLE, make_typelist2($4.ptr,$6.ptr)); }
     | LIST LP {$$.config=$0.config; } parseElem COMMA {$$.config=$0.config;} constantOrVar RP { $$.ptr = make_sourceBop(POET_OP_LIST,$4.ptr,$7.ptr); }
     | LIST1 LP {$$.config=$0.config; } parseElem COMMA {$$.config=$0.config;} constantOrVar RP { $$.ptr = make_sourceBop(POET_OP_LIST1,$4.ptr,$7.ptr); }
-    | TOKEN { $$.ptr = make_empty(); }
 
 parseType : parseType1 {$$=$1; }
     | typeSpec1 { $$=$1; }
@@ -328,7 +338,8 @@ parseElem : singletype { $$=$1; }
       | varInvokeType { $$.ptr=$1.ptr; }
       | TILT typeSpec { $$.ptr = make_typeNot($2); }
       | parseType1 { $$ = $1; }
-      | ID ASSIGN {$$.config=$0.config;} parseElem { $$.ptr=make_sourceAssign(make_varRef($1.ptr,ASSIGN_VAR), $4.ptr); }
+      | ID ASSIGN {$$.config=$0.config; } parseElem
+         { $$.ptr=make_sourceAssign(make_varRef($1.ptr,ASSIGN_VAR), $4.ptr); }
       | parseElem TOR {$$.config=$0.config;} parseElem
             { $$.ptr = make_typeTor($1.ptr,$4.ptr); }
       | LP {$$.config=$0.config;} parseElemMulti RP { $$.ptr = $3.ptr; }
@@ -359,10 +370,11 @@ outputPars : outputPar COMMA {$$.ptr = $0.ptr + 1; } outputPars | outputPar
 outputPar : ID { set_local_static($1.ptr,make_Iconst1($0.ptr), LVAR_OUTPUT,0,1); }
     | ID COLON {$$.config=CODE_VAR;} typeSpec { set_local_static($1.ptr,make_Iconst1($0.ptr), LVAR_OUTPUT,$4.ptr,1); }
 traceVars : ID { $$.ptr = make_traceVar($1.ptr,0); }
+    | ID ASSIGN codeUnit { $$.ptr = make_traceVar($1.ptr,0); eval_define($$.ptr,$3.ptr); }
     | ID  COMMA  traceVars  
            { $$.ptr = make_traceVar($1.ptr,$3.ptr);  }
 
-code : codeIf {$$.config=$0.config;} code { $$.ptr=make_sourceBop(POET_OP_SEQ,$1.ptr, $3.ptr);} 
+code : codeIf {$$.config=$0.config;} code { $$.ptr=make_seq($1.ptr, $3.ptr); }
     | codeIf {$$.ptr=$1.ptr; }
     | code23 { $$.ptr = $1.ptr; }
 codeIf : IF LP {$$.config=$0.config;} code4 RP {$$.config=$0.config;} code1 {$$.config=$0.config;} codeIfHelp 
@@ -442,7 +454,6 @@ code5 :
      | code6 NE {$$.config=$0.config;} code6
            { $$.ptr = make_sourceBop(POET_OP_NE,   $1.ptr, $4.ptr); }
      | code6 COLON {$$.config=$0.config;} patternSpec { $$.ptr = make_sourceBop(POET_OP_ASTMATCH, $1.ptr,$4.ptr); }
-     | MINUS {$$.config=$0.config;} code7 { $$.ptr = make_sourceUop(POET_OP_UMINUS,$3.ptr); } 
      | code6 { $$.ptr = $1.ptr; }
 
 code6 : code7 { $$.ptr = $1.ptr; }
@@ -459,6 +470,7 @@ code6 : code7 { $$.ptr = $1.ptr; }
      | code6 MOD {$$.config=$0.config;} code6 
            { $$.ptr = make_sourceBop(POET_OP_MOD,  $1.ptr,$4.ptr); }
      | code6 DCOLON {$$.config=$0.config;} code6 { $$.ptr = make_sourceBop(POET_OP_CONS,$1.ptr,$4.ptr); }
+     | MINUS {$$.config=$0.config;} code6 { $$.ptr = make_sourceUop(POET_OP_UMINUS,$3.ptr); } 
 
 code7 :  code8 {$$.config=$0.config;} code7Help 
             { if ($3.ptr==0) $$.ptr=$1.ptr; else $$.ptr = make_xformList($1.ptr, $3.ptr); }
@@ -514,6 +526,7 @@ inputCodeList2 :  { $$.ptr = 0; }
 
 inputCode :  
        INPUT_ENDL inputBase { $$.ptr = ($2.ptr==0)? $1.ptr : make_inputlist2($1.ptr,$2.ptr); } lineAnnot { $$.ptr = $4.ptr; }
+     | inputBase { $$.ptr = $1.ptr; }
      | RBEGIN LP {$$.config=CODE_OR_XFORM_VAR; } parseElem RP 
             { $$.ptr = make_annot($4.ptr); }
 
@@ -582,11 +595,11 @@ configRef :
      ID ASSIGN {$$.config=$0.config;} code5 
          { $$.ptr = make_sourceAssign( make_attrAccess($0.ptr,$1.ptr),$4.ptr); }
    | configRef SEMICOLON {$$.ptr=$0.ptr; $$.config=$0.config;} configRef 
-       { $$.ptr = make_sourceBop(POET_OP_SEQ,$1.ptr, $4.ptr);}
+       { $$.ptr = make_seq($1.ptr,$4.ptr); }
 
 xformConfig :  
      ID ASSIGN {$$.config=$0.config;} typeSpec 
          { $$.ptr = make_sourceAssign( make_attrAccess($0.ptr,$1.ptr),$4.ptr); }
    | xformConfig SEMICOLON {$$.ptr=$0.ptr; $$.config=$0.config;} xformConfig 
-       { $$.ptr = make_sourceBop(POET_OP_SEQ,$1.ptr, $4.ptr);}
+       { $$.ptr = make_seq($1.ptr, $4.ptr);}
 %%

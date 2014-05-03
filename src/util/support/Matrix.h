@@ -94,18 +94,11 @@ class Matrix
    {  return Entry(index1, index2); }
 
   RowVector<Matrix<T>,T> operator[](int index) 
-      { 
-     // DQ (11/8/2011): Fixed to avoid function pointer comparision ("rows()" instead of "rows"). 
-        assert(index > 0 && index < rows()); 
-        return RowVector<Matrix<T>, T>(*this, index, 0, cols());
-      }
-
+   { assert(index > 0 && index < rows); 
+      return RowVector<Matrix<T>, T>(*this, index, 0, cols()); }
   RowVector<const Matrix<T>,T> operator[](int index) const 
-      {
-     // DQ (11/8/2011): Fixed to avoid function pointer comparision ("rows()" instead of "rows"). 
-        assert(index > 0 && index < rows()); 
-        return RowVector<const Matrix<T>, T>(*this, index, 0, cols());
-      }
+   { assert(index > 0 && index < rows); 
+      return RowVector<const Matrix<T>, T>(*this, index, 0, cols()); }
 
   void Reset(unsigned index1, unsigned index2)
   {

@@ -140,7 +140,7 @@ class SymbolicAstWrap : public SymbolicValImpl
   const AstNodePtr& get_ast() const { return ast; }
 };
 
-class ROSE_DLL_API SymbolicVal : public CountRefHandle <SymbolicValImpl>
+class SymbolicVal : public CountRefHandle <SymbolicValImpl>
 {
  public:
   SymbolicVal() {}

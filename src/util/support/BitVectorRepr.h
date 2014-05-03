@@ -7,7 +7,6 @@
 #include <assert.h>
 #include <map>
 #include <sstream>
-#include "rosedll.h"
 
 class BitVectorReprImpl {
   unsigned* impl;
@@ -106,7 +105,7 @@ class BitVectorReprImpl {
     }
 };
 
-class ROSE_UTIL_API BitVectorRepr : public CountRefHandle<BitVectorReprImpl>
+class BitVectorRepr : public CountRefHandle<BitVectorReprImpl>
 {
  public:
   BitVectorRepr( BitVectorReprImpl* _impl)

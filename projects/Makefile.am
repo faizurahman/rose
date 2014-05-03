@@ -46,6 +46,7 @@ SUBDIRS = \
 	mint \
 	vectorization \
 	extractMPISkeleton \
+	POET_ROSE \
 	$(OPTIONAL_PROJECTS)
 
 

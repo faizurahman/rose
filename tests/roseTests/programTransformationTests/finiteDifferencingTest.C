@@ -14,8 +14,6 @@ int main (int argc, char* argv[]) {
 
   simpleIndexFiniteDifferencing(sageProject);
 
-  FixSgProject(*sageProject);
-
   // partialRedundancyElimination(sageProject);
 
   // AstPDFGeneration().generateInputFiles(sageProject);

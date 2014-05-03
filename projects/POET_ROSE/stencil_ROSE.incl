@@ -1,0 +1,50 @@
+include Cpp_ROSE.incl
+<define EXTERN TRUE/>
+<define EXP_BASE INT|ID/>
+<define EXP_BOP (("+" "-") ("*" "/"))/>
+<define EXP_UOP ("-")/>
+
+<xform RebuildManycoreDecl pars=(arrs, decl) >
+switch (arrs) {
+ case (first rest) : 
+       (res1,decl1)=RebuildManycoreDecl(first,decl); 
+       (res2,decl2)=RebuildManycoreDecl(rest,decl1);
+       (res1 :: res2, decl2)
+ case CODE.ArrayConfig#(name,dim1):
+       res1 =""; typeinfo=decl[VarDeclStmt.typeInfo]; type_left=typeinfo;
+       foreach (typeinfo: (cur=TypeInfo#(ArrayType#(CLEAR t,CLEAR dim2), name)): TRUE) 
+       {
+          foreach ( dim2 : (cur2=ArrayDim#(CLEAR d)) : TRUE) 
+             dim2=REPLACE(cur2,d,dim2); 
+          res1=BuildList(CODE.ManycoreArrayDeclStmt#(t,name,dim2,dim1),res1);
+          type_left = REBUILD(REPLACE(cur,"",type_left));
+       }
+       res2 = "";
+       for (pv = ReverseList(decl[VarDeclStmt.var]); (cur=car(pv)) != "";  pv = cdr(pv)) {
+          if (! (Lookup(name,cur))) { 
+             res2 = BuildList(cur,res2);
+          }
+       }
+       res2=VarDeclStmt[typeInfo=type_left]#(decl[VarDeclStmt.type],res2);
+       (res1,res2)
+ }
+</xform>
+
+<code ManycoreDeclAnnot pars=(arrs : LIST(CODE.ArrayConfig,","), decl:GLOBAL.VAR_DECL) rebuild=(ManycoreDeclAnnot#(arrs, StmtList#(BuildList(XFORM.RebuildManycoreDecl(arrs,decl))))) >
+array-manycore(@arrs@)
+@decl@
+</code>
+
+<code ArrayConfig pars=(arr : ID,dims:LIST("D"|"S",","))> @arr@(@dims@) </code>
+
+<code StencilPragma pars=(type:ID, oldarray:ID,array:ID, dimsizes:LIST(CODE.StencilDim," ")) match=PARSE>
+stencil-manycore(@type@, @oldarray@, @array@) @dimsizes@
+</code>
+
+<code StencilBlock pars=(type, oldarray,array, dimsizes, body)
+   match=(CODE.Pragma#( (StencilPragma#(type,oldarray,array,dimsizes)),body)) >
+stencil-manycore(@type@, @oldarray@, @array@) @dimsizes@
+@body@
+</code>
+
+<code StencilDim pars=(i:ID,lo:INT|ID,hi:EXP,par:"S"|"D") size="" > @par@(@i@,@lo@,@hi@) </code>

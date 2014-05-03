@@ -33,9 +33,7 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISE
 #include <iostream>
 #include <set>
 #include <list>
-#include <error_config.h>
-#include <poetAST.h>
-#include <ASTvisitor.h>
+#include <poet_ASTvisitor.h>
 #include <assert.h>
 #include <string>
 
@@ -77,6 +75,7 @@ private:
                  for (int i = 0; i < col; ++i) out << " ";  }
 
  virtual void defaultVisit(POETCode* c) { out << c->toString(); }
+ virtual void visitUnknown(POETCode_ext* c) { out << c->toString(); }
  virtual void visitMap(POETMap* m) 
   {
     out << "MAP:{\n";
@@ -157,9 +156,9 @@ void print_AST(std::ostream& out, POETCode* code)
 class CodeGenVisitor : public CollectInfoVisitor
 {
  public:
-  CodeGenVisitor(std:: ostream& _out, XformVar* invoke) 
+  CodeGenVisitor(std:: ostream& _out, XformVar* invoke, POETCode *sep, int a) 
    : out(_out), output_xform(invoke), 
-    align(0), start_pos(0),cur_pos(0),all_space_sofar(1),listsep(0),listelem(0) 
+    align(a), start_pos(a),cur_pos(0),all_space_sofar(1),listsep(sep),listelem(0) 
    {
      if (space == 0) space = ASTFactory::inst()->new_string(" ");
      if (comma == 0) comma = ASTFactory::inst()->new_string(",");
@@ -211,6 +210,10 @@ class CodeGenVisitor : public CollectInfoVisitor
            output_content(res->toString(OUTPUT_NO_DEBUG),r);
         }
      }
+  virtual void visitUnknown(POETCode_ext* e)
+    {
+      POETAstInterface::unparse(e, out, start_pos);
+    }
   virtual void visitString(POETString* s) 
      {  output(s); }
   virtual void visitIconst(POETIconst* s) 
@@ -222,13 +225,7 @@ class CodeGenVisitor : public CollectInfoVisitor
   virtual void visitList(POETList* l) 
     {
        POETCode* cur = l->get_first();
-/*
-       if (cur->get_enum() != SRC_LIST &&
-           listelem != 0 && !match_AST(cur, listelem,MATCH_AST_EQ)) {
-          cur = ASTFactory::inst()->new_codeRef(listelem->get_entry(), cur);
-       }
-*/
-       cur->visit(this) ; 
+       apply_list_restr(cur);
        if (l->get_rest() != 0) {
            if (listsep != 0)
               listsep->visit(this);
@@ -318,6 +315,54 @@ class CodeGenVisitor : public CollectInfoVisitor
        }
        else fc_eval->visit(this);
      }
+
+  void apply_list_restr(POETCode* cur)
+  {
+       switch (cur->get_enum()) {
+       case SRC_LIST: 
+       case SRC_LVAR: 
+          cur->visit(this) ; break;
+       default: 
+          if (listelem == 0 || !apply_restr(cur,listelem)) 
+              cur->visit(this) ; 
+       }
+   }
+
+   bool apply_restr(POETCode* code, POETCode* restr)
+   {
+       if (restr->get_enum() == SRC_CVAR) {
+          CodeVar* cvar = static_cast<CodeVar*>(restr);
+          if (code!=0 && !match_AST(code, cvar,MATCH_AST_PATTERN)) {
+
+             cvar->get_entry().get_symTable()->push_table(false);
+             POETCode* params = cvar->get_entry().get_param();
+             if (params == 0 || match_AST(code, params,MATCH_AST_PATTERN)) {
+                cvar->get_entry().get_symTable()->pop_table();
+                CodeVar* tmp = ASTFactory::inst()->new_codeRef(cvar->get_entry(), code); 
+                tmp->visit(this); 
+                return true; 
+             }
+             cvar->get_entry().get_symTable()->pop_table();
+             CODEGEN_MISMATCH(code, cvar);
+          }
+       }
+       else if (restr->get_enum() == SRC_OP) {
+           POETOperator* op = static_cast<POETOperator*>(restr);
+           if (op->get_op() == POET_OP_LIST || op->get_op()==POET_OP_LIST1)  {
+               if (code == EMPTY) { return true; }
+               POETCode* _listsep = listsep;
+               CodeVar* _listelem = listelem;
+               int save = align;
+               align = start_pos;
+               listsep = op->get_arg(1);
+               listelem=dynamic_cast<CodeVar*>(op->get_arg(0));
+               apply_list_restr(code);
+               align = save; listsep = _listsep; listelem = _listelem;
+               return true;
+            }
+       }
+       return false;
+   }
   virtual void visitLocalVar(LocalVar* var) 
     {
        LvarSymbolTable::Entry e = var->get_entry();
@@ -326,30 +371,8 @@ class CodeGenVisitor : public CollectInfoVisitor
           CollectInfoVisitor::visitLocalVar(var);
           return;
        }
-       if (restr->get_enum() == SRC_CVAR) {
-          CodeVar* cvar = static_cast<CodeVar*>(restr);
-          POETCode* code = e.get_code();
-          if (code!=0 && !match_AST(code, cvar,MATCH_AST_EQ)) {
-             CodeVar* tmp = ASTFactory::inst()->new_codeRef(cvar->get_entry(), code); 
-             tmp->visit(this); 
-             return; 
-          }
-       }
-       else if (restr->get_enum() == SRC_OP) {
-           POETOperator* op = static_cast<POETOperator*>(restr);
-           if (op->get_op() == POET_OP_LIST || op->get_op()==POET_OP_LIST1)  {
-               POETCode* _listsep = listsep;
-               CodeVar* _listelem = listelem;
-               int save = align;
-               align = start_pos;
-               listsep = op->get_arg(1);
-               listelem=dynamic_cast<CodeVar*>(op->get_arg(0));
-               CollectInfoVisitor::visitLocalVar(var);
-               align = save; listsep = _listsep; listelem = _listelem;
-               return;
-            }
-       }
-       CollectInfoVisitor::visitLocalVar(var);
+       if (!apply_restr(e.get_code(), restr))
+          CollectInfoVisitor::visitLocalVar(var);
     }
 
    virtual void visitXformVar( XformVar* v) { defaultVisit(v); }
@@ -361,7 +384,7 @@ class CodeGenVisitor : public CollectInfoVisitor
 POETString* CodeGenVisitor::space=0;
 POETString* CodeGenVisitor::comma=0;
 
-void code_gen(std:: ostream& out, POETCode *code, POETCode* output_invoke) 
+void code_gen(std:: ostream& out, POETCode *code, POETCode* output_invoke, POETCode* listsep, int align) 
 {
  XformVar *output_xform = 0;
  if (output_invoke!=0)
@@ -375,7 +398,7 @@ void code_gen(std:: ostream& out, POETCode *code, POETCode* output_invoke)
        code = ASTFactory::inst()->new_codeRef(output_cvar->get_entry(),code); 
     }
  }
- CodeGenVisitor op(out, output_xform);
+ CodeGenVisitor op(out, output_xform, listsep, align);
  code->visit(&op); 
 }
 

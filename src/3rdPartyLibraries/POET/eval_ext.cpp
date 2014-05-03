@@ -1,3 +1,4 @@
+
 /*
    POET : Parameterized Optimizations for Empirical Tuning
    Copyright (c)  2008,  Qing Yi.  All rights reserved.
@@ -25,20 +26,37 @@ OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGEN
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISEDOF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <error_config.h>
-#include <ASTeval.h>
+/********************************************************************
+  Routines for implementing evaluation of POET AST which can be substituted
+with alternive implementations to connect POET with existing compilers.
+These routines include:
+  EvaluatePOET::eval_readInput_nosyntax
+  POETAstInterface::Ast2String
+  POETAstInterface::unparseToString
+  POETAstInterface::MatchAstTypeName
+  POETAstInterface::Ast2POET
+  POETAstInterface::ReplaceChildren
+********************************************************************/
+#include <poet_ASTeval.h>
+#include <poet_ASTinterface.h>
 
-extern EvaluatePOET* evalPOET;
-extern bool debug_time;
-
-int main(int argc, char** argv)
-{
-  int index = initialize(argc, argv);
-  evalPOET = new EvaluatePOET();
-    for ( ; index < argc; ++index) {
-       const char* fname = argv[index];
-          evalPOET->eval_program(process_file(fname));
-    }
-  delete evalPOET;
-  return 0;
+POETCode* EvaluatePOET::
+eval_readInput_nosyntax(POETCode* inputFiles, POETCode* codeType, POETCode* inputInline)
+{ 
+  return eval_readInput(inputFiles, codeType,inputInline); 
 }
+
+bool POETAstInterface::MatchAstTypeName(const Ast& n, const std::string& name)
+{ std::cerr << "Need to be implemented by external compilers!"; assert(0); }
+
+std::string POETAstInterface::Ast2String(const Ast & n)
+{ std::cerr << "Need to be implemented by external compilers!"; assert(0); }
+
+void POETAstInterface::unparse(POETCode_ext *e, std::ostream& out, int align)
+{ std::cerr << "Need to be implemented by external compilers!"; assert(0); }
+
+POETCode* POETAstInterface::Ast2POET(const Ast& n) 
+{ std::cerr << "Need to be implemented by external compilers!"; assert(0); }
+
+POETCode* POETAstInterface::ReplaceChildren(POETCode_ext* ext, POETCode* new_children)
+{ std::cerr << "Need to be implemented by external compilers!"; assert(0); }

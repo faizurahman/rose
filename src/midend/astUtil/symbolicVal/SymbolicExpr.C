@@ -144,7 +144,6 @@ void SymbolicOperands :: AddOpd( const SymbolicTerm& v, OPApplicator *op)
 
 SymbolicVal GetExprVal( SymbolicExpr *r)
    {
-     assert ( r!= NULL);
       int num = r->NumOfOpds();
       if (num == 1) {
          SymbolicVal result = r->Term2Val(r->FirstOpd());
@@ -240,7 +239,7 @@ class IntVisitor : public OPHelpVisitor
   SymbolicVal ApplyOP( const SymbolicVal& v)
     { v2 = v; return OPHelpVisitor::ApplyOP(v); }
 
-};      
+};
 
 class TermVisitor : public OPHelpVisitor
 {

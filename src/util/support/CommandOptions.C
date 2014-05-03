@@ -1,5 +1,4 @@
 #include <CommandOptions.h>
-#include <cassert>
 
 CmdOptions* CmdOptions::inst = 0;
 CmdOptions* CmdOptions::GetInstance()

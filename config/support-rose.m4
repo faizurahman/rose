@@ -2076,6 +2076,7 @@ projects/RoseQt/Makefile
 projects/SatSolver/Makefile
 projects/UpcTranslation/Makefile
 projects/UpcTranslation/tests/Makefile
+projects/POET_ROSE/Makefile
 projects/arrayOptimization/Makefile
 projects/arrayOptimization/test/Makefile
 projects/autoParallelization/Makefile

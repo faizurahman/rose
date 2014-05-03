@@ -69,7 +69,7 @@ CodeGen( const AstNodePtr& c) const
       return fa.CreateIf( cond1, c );
    }
 
-LoopTreeNode* ApproachAncesLoop( LoopTreeNode* start, RoseSelectObject<LoopTreeNode*>& sel)
+LoopTreeNode* ApproachAncesLoop( LoopTreeNode* start, SelectObject<LoopTreeNode*>& sel)
 {
    LoopTreeNode* l = 0;
       for (l = start->Parent(); l != 0 && l->ChildCount() == 1; 
@@ -149,7 +149,7 @@ bool LoopTreeRestrLoopRange :: RemoveSelf()
       return false;
 }
 
-class SelectRestrLoopAnces : public RoseSelectObject<LoopTreeNode*>
+class SelectRestrLoopAnces : public SelectObject<LoopTreeNode*>
 {
   LoopTreeRestrLoopRange *node;
  public:
@@ -260,7 +260,7 @@ bool LoopTreeRestrLoopRange :: MergeSibling( int opt)
       return false;
    }
 
-class SelectRelateLoopAnces : public RoseSelectObject<LoopTreeNode*>
+class SelectRelateLoopAnces : public SelectObject<LoopTreeNode*>
 {
   LoopTreeRelateLoopIvar *node;
  public:
@@ -397,7 +397,7 @@ std::string LoopTreeCopyArray::toString() const
 
 std::string LoopTreeReplAst::toString() const
 {
-  return "replace " + AstToString(orig) + " -> " + AstToString(repl);
+  return "replace " + AstInterface::AstToString(orig) + " -> " + AstInterface::AstToString(repl);
 }
 
 AstNodePtr LoopTreeReplAst::CodeGen( ) const

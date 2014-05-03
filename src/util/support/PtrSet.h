@@ -37,23 +37,11 @@ class PtrSetWrap
     Iterator& operator = (const Iterator& that)
       { impl = that.impl; p = that.p; return *this; }
 
-    void Reset()
-    {
-      p = (impl->empty()) ? remove_constness(impl->end()) :
-                            remove_constness(impl->begin());
-    }
+    void Reset() { p = (impl->empty())? impl->end() : impl->begin(); }
     void Advance() { if (p != impl->end()) ++p; } 
     void operator ++() { Advance(); }
     void operator ++(int) { Advance(); }
     bool ReachEnd() const { return p == impl->end(); }
-    VoidPtrSet::iterator remove_constness(VoidPtrSet::const_iterator itr) const
-    {
-    #ifdef _MSC_VER
-      return const_cast<VoidPtrSet*>(this->impl)->erase(itr, itr);
-    #else
-      return itr;
-    #endif
-    }
     friend class PtrSetWrap<T>;
   };
   class const_iterator : public Iterator {
@@ -62,15 +50,8 @@ class PtrSetWrap
      : Iterator(that) {}
     bool operator == (const const_iterator& that) const
       { return Iterator::operator==(that); }
-
     const_iterator& operator = (const const_iterator& that)
-      { 
-        Iterator::operator=(that);
-
-     // DQ (11/3/2011): Added return (caught by new EDG compiling ROSE).
-        return *this;
-      }
-
+      { Iterator::operator=(that); }
     T* Current() const {  return Iterator::Current(); }
     T* operator *() const { return Current(); }
   };
@@ -79,35 +60,17 @@ class PtrSetWrap
     iterator( const Iterator& that) : Iterator(that) {}
     bool operator == (const iterator& that) const
       { return Iterator::operator==(that); }
-
     iterator& operator = (const iterator& that)
-      {
-        Iterator::operator=(that); 
-
-     // DQ (11/3/2011): Added return (caught by new EDG compiling ROSE).
-        return *this;
-      }
-
+      { Iterator::operator=(that); }
     T*& Current() {  return Iterator::Current(); }
     T*& operator *() { return Current(); }
   };
 
   const_iterator begin() const { return Iterator(&impl); }
-  const_iterator end() const
-  {
-    return Iterator(&impl, remove_constness(impl.end()));
-  }
+  const_iterator end() const { return Iterator(&impl, impl.end()); }
   const_iterator find(const T* t) const { return Iterator(&impl,impl.find((void*)t)); }
   iterator begin() { return Iterator(&impl); }
   iterator end() { return Iterator(&impl, impl.end()); }
-  VoidPtrSet::iterator remove_constness(VoidPtrSet::const_iterator itr) const
-  {
-    #ifdef _MSC_VER
-    return const_cast<PtrSetWrap<T>*>(this)->impl.erase(itr, itr);
-    #else
-    return itr;
-    #endif
-  }
 
   bool IsMember( const T* t) const 
            { return impl.find((void*)t) != impl.end(); }
@@ -130,7 +93,7 @@ class PtrSetWrap
   void operator |= (const PtrSetWrap<T>& that)
     { impl.insert(that.impl.begin(), that.impl.end()); }
   void operator -= (const PtrSetWrap<T>& that)
-    { for (VoidPtrSet::iterator p = remove_constness(that.impl.begin());
+    { for (VoidPtrSet::iterator p = that.impl.begin();
            p !=  that.impl.end(); ++p) {
          VoidPtrSet::iterator p1 = impl.find(*p);
          if (p1 != impl.end())
@@ -175,7 +138,7 @@ class AppendPtrSet : public CollectObject<T*>
 
 
 template<class T>
-class SelectSTLSet : public RoseSelectObject<T>
+class SelectSTLSet : public SelectObject<T>
 {
   std::set<T> res;
  public:
@@ -186,7 +149,7 @@ class SelectSTLSet : public RoseSelectObject<T>
    }
 };
 template<class T>
-class SelectPtrSet : public RoseSelectObject<T*>
+class SelectPtrSet : public SelectObject<T*>
 {
   PtrSetWrap<T> res;
  public:
@@ -202,7 +165,7 @@ class SelectPtrSet : public RoseSelectObject<T*>
    }
 };
 template<class T>
-class NotSelectPtrSet : public RoseSelectObject<T*>
+class NotSelectPtrSet : public SelectObject<T*>
 {
   PtrSetWrap<T> res;
  public:

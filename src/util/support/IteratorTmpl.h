@@ -130,9 +130,7 @@ template <class Iter>
 unsigned CountIteratorSize( Iter iter)
 {
   unsigned size = 0;
-  for ( Iter p = iter; !p.ReachEnd(); ++p,++size)
-  {
-  }
+  for ( Iter p = iter; !p.ReachEnd(); ++p,++size);
   return size;
 } 
 

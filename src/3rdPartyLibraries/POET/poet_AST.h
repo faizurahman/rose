@@ -34,11 +34,9 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISE
 #include <sstream>
 #include <iostream>
 #include <poet_config.h>
-#include <SymbolTable.h>
+#include <poet_error.h>
+#include <poet_SymbolTable.h>
 #include <assert.h>
-
-extern bool debug_xform();
-extern "C" void yyerror(const char* msg);
 
 class POETCode;
 class POETString;
@@ -53,7 +51,8 @@ class POETType;
 class POETMap;
 class POETOperator;
 class TupleAccess;
-typedef enum {SRC_ANY, 
+class POETCode_ext;
+typedef enum {SRC_ANY, SRC_UNKNOWN, 
    SRC_STRING, SRC_ICONST, SRC_LIST, SRC_CVAR, SRC_TUPLE, SRC_MAP,
    SRC_LVAR, SRC_TYPE, SRC_XVAR, SRC_TUPLE_ACCESS, SRC_OP, SRC_ASSIGN, 
    SRC_EVAL, SRC_CTRL, SRC_PARAM_DECL, SRC_TRACE_DECL, 
@@ -76,6 +75,7 @@ class POETCodeVisitor {
   virtual void visitType(POETType*);
   virtual void visitOperator(POETOperator*) ;
   virtual void visitTupleAccess(TupleAccess*) ;
+  virtual void visitUnknown(POETCode_ext* ) { assert(0); }
   void visit(POETCode* c);
 };
 
@@ -108,7 +108,6 @@ class POETIconst : public POETCode {
   virtual std:: string get_className() const { return "POETIconst"; }
   virtual void visit(POETCodeVisitor* op)  { op->visitIconst(this); }
   int get_val() const { return val; }
-  void set_val(int v) { val = v; }
  friend class ASTFactory;
 };
 
@@ -347,6 +346,7 @@ class FileInfo {
 
 class POETEvalExp: public POETCode, public FileInfo
 {
+ protected:
   POETCode* exp;
  public:
   POETEvalExp(POETCode* _exp, const std::string& fname, int i) 
@@ -357,6 +357,16 @@ class POETEvalExp: public POETCode, public FileInfo
          { return exp->toString(config); }
   virtual void visit(POETCodeVisitor* op) ;
   virtual const FileInfo* get_fileinfo() const { return this; }
+};
+
+class POETCondExp : public POETEvalExp
+{
+ public:
+  POETCondExp(POETCode* _exp, const std::string& fname, int i)
+    : POETEvalExp(_exp,fname, i) {}
+  virtual std:: string get_className() const { return "POETCondExp";}
+  virtual std:: string toString(ASTOutputEnum config=DEBUG_OUTPUT_SHORT)
+         { return "cond(" + exp->toString(config) + ")"; }
 };
 
 class POETUop : public POETOperator
@@ -396,7 +406,7 @@ class POETBop : public POETOperator
   POETCode* arg1, *arg2;
   POETBop(POETOperatorType _t, POETCode* _arg1, POETCode* _arg2)
      : POETOperator(_t), arg1(_arg1),arg2(_arg2) 
-      { assert(arg1 != 0 && arg2 != 0); }
+      { assert(arg1 != 0); }
   void set_arg1(POETCode* r) { arg1 = r; }
   void set_arg2(POETCode* r) { arg2 = r; }
  public:
@@ -469,9 +479,8 @@ class POETParseList : public POETBop
   POETParseList(POETOperatorType _t, POETCode* arg1, POETCode* arg2) 
     : POETBop(_t,arg1,arg2),lookahead(0) {}
   /*QY: compute lookahead info; return the min len of tokens in lookahead */
-  unsigned compute_lookaheadInfo(EvaluatePOET* op, std::vector<POETCode*>& res, 
-                            unsigned need); 
-  bool match_lookahead(EvaluatePOET* op, POETCode* input);
+  unsigned compute_lookaheadInfo(std::vector<POETCode*>& res, unsigned need); 
+  bool match_lookahead(POETCode* input);
 };
 
 class POETTypeTor : public POETOperator
@@ -487,7 +496,7 @@ class POETTypeTor : public POETOperator
 
   /*QY:compute lookahead for args[index]; 
        return the min len of tokens computed*/
-  unsigned compute_lookaheadInfo(EvaluatePOET* op, unsigned index, unsigned  need); 
+  unsigned compute_lookaheadInfo(unsigned index, unsigned  need); 
  public:
   POETTypeTor(POETCode* arg1, POETCode* arg2) 
       : POETOperator(TYPE_TOR),allowEmpty(false) 
@@ -507,10 +516,9 @@ class POETTypeTor : public POETOperator
 
   /*QY: compute lookahead info for all alternatives; 
         return the min len of tokens in the lookahead */
-  unsigned compute_lookaheadInfo(EvaluatePOET* op, std::vector<POETCode*>& res, 
-                            unsigned need);
+  unsigned compute_lookaheadInfo(std::vector<POETCode*>& res, unsigned need);
   /*QY: return the proper alternative for parsing the given input */
-  POETCode* get_parseInfo(EvaluatePOET* op, POETCode* input);
+  POETCode* get_parseInfo(POETCode* input);
 };
 
 class TupleAccess : public POETCode {
@@ -664,6 +672,24 @@ class WriteOutput : public POETCode, public FileInfo
   virtual const FileInfo* get_fileinfo() const { return this; }
 };
 
+/*QY: special AST extension for supporting ASTs from external compilers*/
+class POETCode_ext : public POETCode
+{
+  protected:
+    void* content;
+    POETCode* children;
+  public:
+    POETCode_ext(void* _content, POETCode* c) : content(_content),children(c) {assert(content!=0);};
+    virtual POETEnum get_enum() const { return SRC_UNKNOWN; }
+    virtual std:: string get_className() const { return "POETCode_ext"; }
+    virtual void visit(POETCodeVisitor* op)  { op->visitUnknown(this); }
+    virtual std:: string toString(ASTOutputEnum config=DEBUG_OUTPUT_SHORT) ;
+    void* get_content() { return content; }
+    POETCode* get_children() { return children; }
+  friend class POETAstInterface;
+};
+
+
 class POETProgram : public POETCode
 {
   static LvarSymbolTable traceDef, paramDef, macroDef;
@@ -690,7 +716,7 @@ class POETProgram : public POETCode
   std::string filename, ext;
   bool done_save;
 
-  LocalVarSave prep_save, unparse_save, token_save, parse_save;
+  LocalVarSave prep_save, extern_save, unparse_save, token_save, parse_save;
  public:
   typedef std::list<POETCode*>::const_iterator const_iterator;
   const_iterator begin() { return define.begin(); }
@@ -698,16 +724,21 @@ class POETProgram : public POETCode
   unsigned size() const { return define.size(); }
   LvarSymbolTable* get_evalTable() { return &evalDef; }
  
-  POETProgram(const std::string& fname) : filename(fname),done_save(false) 
-    {  size_t pos = filename.rfind("."); 
-       if (pos < filename.size()) 
+  POETProgram(const std::string& fname) 
+       : filename(fname),done_save(false)
+    {  
+       if (filename != "") {
+         size_t pos = filename.rfind("."); 
+         if (pos < filename.size()) 
           ext = filename.substr(pos, filename.size()-pos+1); 
+       }
     } 
 
   static POETString* make_string(const std::string& r);
   static POETIconst* make_Iconst(int val);
   static POETOperator* make_dummyOperator(POETOperatorType t);
-  static POETCode* make_empty();
+  static POETCode* make_empty_list();
+  static POETCode* make_empty_string();
   static POETCode* make_any() ;
   static POETCode* make_rangeType(POETCode* lb, POETCode* ub);
   static POETCode* make_listType(POETCode* elemType);
@@ -755,6 +786,7 @@ class POETProgram : public POETCode
   ReadInput* insert_inputDecl(int lineno); 
   WriteOutput* insert_outputDecl(int lineno);
   void insert_evalDecl(POETCode* code, int lineNo);
+  void insert_condDecl(POETCode* code, int lineNo);
   void insert_sourceCode(POETCode* code) /* input source;not POET code*/
       { define.push_back(code); }
   void insert_define(LocalVar* var, POETCode* code); /* no evaluation */ 
@@ -823,6 +855,18 @@ class RestoreNestedTraceVars : public VisitNestedTraceVars
 {
   virtual void preVisitTraceVar(LocalVar* v) { v->get_entry().pop(); }
 };
+
+class ParseError : public Error {
+  POETCode* r1, *r2;
+  int lineno;
+ public:
+  ParseError(POETCode* _r1, POETCode *_r2, int _lineno) : r1(_r1), r2(_r2), lineno(_lineno) {}
+  std::string message() const 
+   { std:: stringstream msg; msg << "Parsing type mismatch at line " << lineno << ": " << SHORT(r1->toString(),100) << "\n=> " << r2->toString() << "\n";  
+     return msg.str(); }
+};
+#define PARSE_MISMATCH(r1,r2,ln)  { throw ParseError(r1,r2,ln); }
+
 
 int inline AST2Bool(POETCode* r) 
 {   r = EvalTrace(r); 

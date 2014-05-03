@@ -4,9 +4,6 @@
 
 using namespace std;
 
-// This is a function in Qing's AST interface
-void FixSgProject(SgProject& proj);
-
 int main (int argc, char* argv[])
    {
   // Build the project object (AST) which we will fill up with multiple files and use as a
@@ -57,9 +54,6 @@ int main (int argc, char* argv[])
           count++;
         }
      while(modifiedAST == true && count < 10);
-
-  // Call function to postprocess the AST and fixup symbol tables
-     FixSgProject(*project);
 
   // Rename each variable declaration
      renameVariables(project);

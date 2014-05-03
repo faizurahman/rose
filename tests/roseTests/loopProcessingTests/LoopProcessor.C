@@ -1,12 +1,17 @@
 
-#include "sage3basic.h"
-#include "unparser.h"
 #include <CommandOptions.h>
 #include <LoopTransformInterface.h>
 #include <AnnotCollect.h>
 #include <OperatorAnnotation.h>
 #include <AstInterface_ROSE.h>
 #include <AutoTuningInterface.h>
+//do not include the following files from rose.h
+#define CFG_ROSE_H
+#define CONTROLFLOWGRAPH_H
+#define PRE_H
+#define ASTDOTGENERATION_TEMPLATES_C
+#include "rose.h"
+#include "unparser.h"
 
 using namespace std;
 extern bool DebugAnnot();
@@ -29,8 +34,6 @@ void PrintUsage( const string& name)
   std::cerr << "-splitloop: applying loop splitting to remove conditionals inside loops\n";
   std::cerr << ReadAnnotation::get_inst()->OptionString() << std::endl;
 //  std::cerr << "-inline: applying loop inlining for annotated functions\n";
-//  std::cerr << "-pre:  apply partial redundancy elimination\n";
-//  std::cerr << "-fd:  apply finite differencing to array index expressions\n";
   LoopTransformInterface::PrintTransformUsage( std::cerr );
 }
 
@@ -47,7 +50,6 @@ main ( int argc,  char * argv[] )
 #ifdef USE_OMEGA
   std::stringstream buffer;
   buffer << argv[argc-1] << std::endl;
-	
   DepStats.SetFileName(buffer.str());
 #endif
 
@@ -97,15 +99,7 @@ main ( int argc,  char * argv[] )
     tuning.GenOutput();
   }
 
-//   if (CmdOptions::GetInstance()->HasOption("-fd")) {
-//       simpleIndexFiniteDifferencing(sageProject);
-//   }
-//   if (CmdOptions::GetInstance()->HasOption("-pre")) {
-//       partialRedundancyElimination(sageProject);
-//   }
-
      unparseProject(sageProject);
-   //backend(sageProject);
 
 #ifdef USE_OMEGA
      DepStats.SetDepChoice(0x1 | 0x2 | 0x4);

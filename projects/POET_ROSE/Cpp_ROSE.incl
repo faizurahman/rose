@@ -1,0 +1,14 @@
+
+<code VarDeclStmt pars=(type:CODE.Type, var:CODE.VariableList)
+                  typeInfo="" >
+@type@ @var@;
+</code>
+
+<code Nest pars=(ctrl, body) annot="" >
+@annot ctrl@ 
+  @body@
+</code>
+
+<code Assign pars=(lhs, rhs) >
+@lhs@ = @rhs@
+</code>

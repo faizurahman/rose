@@ -1,4 +1,3 @@
-#include <sage3.h>
 
 #include <StmtInfoCollect.h>
 #include <AstInterface_ROSE.h>
@@ -8,6 +7,8 @@
 #include <iostream>
 #include <CommandOptions.h>
 #include <GraphIO.h>
+#include <sage3.h>
+
 
 // DQ (1/1/2006): This is OK if not declared in a header file
 using namespace std;
@@ -85,7 +86,7 @@ main ( int argc,  char * argv[] )
      }
 
      SgProject sageProject ( (int)argc,argv);
-     SageInterface::changeAllBodiesToBlocks(&sageProject);
+     SageInterface::changeAllLoopBodiesToBlocks(&sageProject);
     CmdOptions::GetInstance()->SetOptions(argc, argv);
 
 

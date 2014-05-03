@@ -15,13 +15,13 @@ class CFGImplTemplate
   virtual Node* CreateNode()
         { 
            Node* n = new Node(this);
-           VirtualGraphCreateTemplate<Node, Edge>::AddNode(n);
+           AddNode(n);
            return n;
         }
   virtual void CreateEdge( Node *n1, Node *n2, EdgeType condval) 
         {
            Edge* e = new Edge(condval, this);
-           VirtualGraphCreateTemplate<Node, Edge>::AddEdge( n1, n2, e);
+           AddEdge( n1, n2, e);
         } 
   virtual void AddNodeStmt(Node* n, const AstNodePtr& s) 
         { n->AddNodeStmt(s); }
@@ -52,9 +52,9 @@ class CFGNodeImpl : public MultiGraphElem
         std::stringstream r;
         std:: list<AstNodePtr>::const_iterator p = stmtList.begin(); 
         if (p != stmtList.end()) {
-           r <<  AstToString(*p);
+           r <<  AstInterface::AstToString(*p);
            for ( ++p; p != stmtList.end(); ++p) 
-               r << "\n" <<  AstToString(*p);
+               r << "\n" <<  AstInterface::AstToString(*p);
         }
         else
             r << "EMPTY\n";
@@ -66,7 +66,7 @@ class CFGNodeImpl : public MultiGraphElem
       std:: cerr << "Node : " << this << "\n"; 
       for (std:: list<AstNodePtr>::const_iterator p = stmtList.begin(); 
            p != stmtList.end(); ++p)
-            std:: cerr << AstToString(*p);
+            std:: cerr << AstInterface::AstToString(*p);
     }
   virtual void Dump() const
     {

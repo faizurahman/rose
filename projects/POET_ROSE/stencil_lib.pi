@@ -1,0 +1,6 @@
+
+<define VAR_DECL CODE.VarDecl/>
+
+<code stencil_manycore pars=(old_array,array, dimsizes, st_local) T="T" />
+<xform gen_manycore_stencil_local pars=(oldarray, newarray, dimsizes, body) /> 
+<xform gen_manycore_stencil_boundary pars=(loclist, oldarray, array, dim,dim_idx,local) />

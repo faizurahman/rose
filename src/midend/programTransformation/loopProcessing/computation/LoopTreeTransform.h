@@ -2,6 +2,7 @@
 #define TRANSFORM_LOOP_TREE_H
 
 #include <vector>
+#include <list>
 #include <LoopTree.h>
 #include <LoopTreeHoldNode.h>
 #include <DepRel.h>
@@ -21,14 +22,15 @@ class LoopTreeTransform
 
 class LoopTreeDistributeNode : public LoopTreeTransform
 {
-  typedef RoseSelectObject<LoopTreeNode*>& SelectLoopTreeNode;
+  typedef SelectObject<LoopTreeNode*>& SelectLoopTreeNode;
   LoopTreeNode* Distribute( LoopTreeNode *n, SelectLoopTreeNode sel, 
-                            ObserveTransform &ob, LoopTreeNode** loc=0);
+                 int pos, /*-1: before n; 1: after n*/
+                 ObserveTransform &ob, LoopTreeNode** loc=0);
   /* QY: distribute the parent of loc to separate all children before loc */
   LoopTreeNode* DistributeBefore(LoopTreeNode* parent, LoopTreeNode* loc);
 
  public:
-  typedef enum {BEFORE, AFTER, ORIG} Location;
+  typedef enum {BEFORE, AFTER} Location;
   /* QY: distribute n; put the distributed node before/after n or based on
      on original locations of split children */
   LoopTreeNode* operator () (LoopTreeNode *n, SelectLoopTreeNode sel, Location config=BEFORE);

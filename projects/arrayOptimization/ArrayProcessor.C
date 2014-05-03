@@ -1,4 +1,3 @@
-#include "sage3basic.h"
 #include <CPPAstInterface.h>
 #include <ArrayAnnot.h>
 #include <ArrayRewrite.h>
@@ -7,6 +6,12 @@
 #include <LoopTransformInterface.h>
 #include <CommandOptions.h>
 #include <AstInterface_ROSE.h>
+//do not include the following files from rose.h
+#define CFG_ROSE_H
+#define CONTROLFLOWGRAPH_H
+#define PRE_H
+#define ASTDOTGENERATION_TEMPLATES_C
+#include "rose.h"
 
 using namespace std;
 using namespace CommandlineProcessing;
@@ -50,7 +55,7 @@ main ( int argc,  char * argv[] )
    for (int i = 0; i < filenum; ++i) {
      SgSourceFile* sageFile = isSgSourceFile(sageProject->get_fileList()[i]);
      SgGlobal *root = sageFile->get_globalScope();
-     SgDeclarationStatementPtrList declList = root->get_declarations ();
+     SgDeclarationStatementPtrList& declList = root->get_declarations ();
      for (SgDeclarationStatementPtrList::iterator p = declList.begin(); p != declList.end(); ++p) {
           SgFunctionDeclaration *func = isSgFunctionDeclaration(*p);
           if (func == 0)
